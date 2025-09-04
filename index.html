@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Trốn Tìm - Màn 2 (fixed)</title>
+<style>
+  :root{ --W:960px; --H:640px; --cellW:280px; --cellH:180px; --gap:10px; }
+  body{margin:0;background:#0b1220;color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;padding:12px}
+  h1{margin:6px 0 12px;font-weight:600}
+  #wrap{position:relative;width:var(--W);height:var(--H);background:#e9eef6;border:4px solid #111;box-shadow:0 8px 30px rgba(0,0,0,.6);overflow:hidden}
+  .room{position:absolute;box-sizing:border-box;border:3px solid #222;overflow:hidden;background:#ddd}
+  .room img{width:100%;height:100%;object-fit:cover;display:block}
+  .room.missing{display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#f7f7f7,#e6e6e6);color:#444;font-weight:700}
+  .door{position:absolute;background:#fff;border:2px solid #444;box-sizing:border-box;z-index:30}
+  #mainDoor{position:absolute;left:calc(50% - 22px);bottom:8px;width:0;height:0;border-left:22px solid transparent;border-right:22px solid transparent;border-top:34px solid #7a1f1f;z-index:35}
+  #player,#seeker{position:absolute;background-size:cover;background-position:center;z-index:60;pointer-events:none}
+  #player{width:44px;height:44px;background-image:url('player.png')}
+  #seeker{width:48px;height:48px;background-image:url('phien.png')}
+  #hud{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.5);padding:8px;border-radius:8px;z-index:90;display:none}
+  #lives{position:absolute;right:12px;top:12px;z-index:95;display:flex;gap:6px;align-items:center}
+  .heart{width:22px;height:22px;border-radius:50%;background:#ff5f7a;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;box-shadow:0 1px 0 rgba(0,0,0,.35)}
+  .heart.lost{opacity:.25;filter:grayscale(.95)}
+  #toast{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:#fff;color:#000;padding:8px 12px;border-radius:8px;border:2px solid #000;z-index:110;display:none}
+  #startOverlay{position:absolute;inset:0;background:rgba(2,6,23,.82);z-index:120;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+  #startOverlay button{padding:10px 18px;border-radius:10px;border:none;background:#ffd54f;color:#000;font-weight:700;cursor:pointer}
+  #digCircle{position:absolute;width:72px;height:72px;border:6px solid #03a9f4;border-radius:50%;display:none;z-index:95;cursor:pointer;background:rgba(3,169,244,0.06)}
+  #controlsWrap{width:var(--W);display:flex;justify-content:center;gap:18px;align-items:center;margin-top:12px}
+  #controls{display:flex;gap:10px}
+  .ctrl{width:68px;height:52px;border-radius:10px;border:3px solid #000;background:#fff;color:#000;font-size:22px;cursor:pointer}
+  #slots{display:flex;gap:8px;background:rgba(255,255,255,0.95);padding:8px;border-radius:10px;border:2px solid #000}
+  .slot{width:72px;height:56px;border:2px dashed #666;border-radius:8px;background:#fafafa;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .slot.active{outline:3px solid #28a745}
+  #btnTake{padding:8px 10px;border-radius:8px;border:none;background:#28a745;color:#fff;cursor:pointer;display:none;margin-left:8px}
+  .note{color:#ddd;margin-top:6px}
+
+/* card select styling */
+#cardSelect { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.8); z-index:150; text-align:center; padding-top:80px; }
+.secretCard { cursor:pointer; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,.6); background:#fff; }
+</style>
+</head>
+<body>
+  <h1>Trốn Tìm — Màn 2</h1>
+  <div id="wrap">
+    <div id="room1" class="room" data-id="1"><img src="room1.png" alt=""></div>
+    <div id="room2" class="room" data-id="2"><img src="room2.png" alt=""></div>
+    <div id="room3" class="room" data-id="3"><img src="room3.png" alt=""></div>
+    <div id="room4" class="room" data-id="4"><img src="room4.png" alt=""></div>
+    <div id="room5" class="room" data-id="5"><img src="room5.png" alt=""></div>
+    <div id="room6" class="room" data-id="6"><img src="room6.png" alt=""></div>
+    <div id="room7" class="room" data-id="7"><img src="room7.png" alt=""></div>
+    <div id="room8" class="room" data-id="8"><img src="room8.png" alt=""></div>
+    <div id="room9" class="room" data-id="9"><img src="room9.png" alt=""></div>
+    <div id="mainDoor" title="Cửa (bẫy)"></div>
+    <div id="player" title="Bạn"></div>
+    <div id="seeker" title="Kẻ đi tìm"></div>
+    <div id="digCircle" title="Nhấp 3 lần để đào"></div>
+
+    <div id="hud">
+      Thời gian bắt đầu: <b><span id="tStart">0</span>s</b><br>
+      Đếm ngược (trốn): <b><span id="tHide">20</span>s</b><br>
+      Thời gian tìm còn lại: <b><span id="tSeek">160</span>s</b>
+    </div>
+
+    <!-- Popup chọn thẻ bí mật (chỉ 1 popup) -->
+    <div id="cardSelect">
+      <h2 style="color:#fff">Chọn 1 thẻ bí mật để xem ai sẽ đi tìm!</h2>
+      <p id="cardCountdown" style="color:#fff">Bạn có 10 giây để chọn...</p>
+      <div style="display:flex; justify-content:center; gap:20px; margin-top:20px;">
+        <img src="https://vietbinhminigame.io.vn/minigame-latthe1/img/back.png" class="secretCard" width="120" height="160" alt="card1">
+        <img src="https://vietbinhminigame.io.vn/minigame-latthe1/img/back.png" class="secretCard" width="120" height="160" alt="card2">
+        <img src="https://vietbinhminigame.io.vn/minigame-latthe1/img/back.png" class="secretCard" width="120" height="160" alt="card3">
+      </div>
+    </div>
+
+    <div id="lives" aria-label="Mạng">
+      <div class="heart">❤</div>
+      <div class="heart">❤</div>
+      <div class="heart">❤</div>
+    </div>
+    <div id="toast"></div>
+    <div id="startOverlay">
+      <h2>Trò chơi do Thanh tạo</h2>
+      <p>Player có 20s để trốn. Kẻ đi tìm sẽ lần lượt kiểm tra 9 phòng (5s/phòng) và lặp lại 4 vòng. Tổng thời gian 160s. Còn ≥1 tim khi hết giờ thì thắng.</p>
+      <button id="startBtn">Start</button>
+    </div>
+  </div>
+
+  <div id="controlsWrap">
+    <div id="controls">
+      <button class="ctrl" id="btnL">←</button>
+      <button class="ctrl" id="btnU">↑</button>
+      <button class="ctrl" id="btnD">↓</button>
+      <button class="ctrl" id="btnR">→</button>
+    </div>
+
+    <div id="slots">
+      <div id="slot1" class="slot" title="Slot 1"></div>
+      <div id="slot2" class="slot" title="Slot 2"></div>
+      <div id="slot3" class="slot" title="Slot 3"></div>
+      <button id="btnTake">Lấy</button>
+    </div>
+  </div>
+
+  <div class="note">Ghi chú: chạm cửa tam giác sẽ mất 1 tim; kẻ đi tìm xuất phát ở cửa tam giác.</div>
+
+  <!-- 2 bản nhạc trong thư mục -->
+  <audio id="bgMusic1" src="Đừng Bỏ Em Một Mình.mp3" loop></audio>
+  <audio id="bgMusic2" src="Thien Ly Oi - Jack - J97 - NhacHayVN.mp3" loop></audio>
+
+<script>
+/* ====== CONFIG ====== */
+const WRAP_W = 960, WRAP_H = 640;
+const COLS = 3, ROWS = 3;
+const CELL_W = 280, CELL_H = 180;
+const GAP = 10;
+const OFFSET_X = (WRAP_W - (COLS*CELL_W + (COLS-1)*GAP)) / 2;
+const OFFSET_Y = (WRAP_H - (ROWS*CELL_H + (ROWS-1)*GAP)) / 2;
+const hideSeconds = 20;
+const totalSeekSeconds = 160;
+let perRoomDuration = 3; // thay đổi về sau (3s -> 2s khi còn 30s)
+
+/* ====== DOM refs ====== */
+const wrap = document.getElementById('wrap');
+const roomEls = Array.from(document.querySelectorAll('.room'));
+const playerEl = document.getElementById('player');
+const seekerEl = document.getElementById('seeker');
+const mainDoorEl = document.getElementById('mainDoor');
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+const hud = document.getElementById('hud');
+const toastEl = document.getElementById('toast');
+const digCircle = document.getElementById('digCircle');
+const btnTake = document.getElementById('btnTake');
+const slot1 = document.getElementById('slot1');
+const livesEl = document.getElementById('lives');
+
+const cardSelectEl = document.getElementById('cardSelect');
+const cardCountdownEl = document.getElementById('cardCountdown');
+const secretCards = Array.from(document.querySelectorAll('.secretCard'));
+
+/* ====== small helpers ====== */
+function showToast(msg, ms=1400){
+  toastEl.textContent = msg; toastEl.style.display='block';
+  clearTimeout(showToast.t); showToast.t = setTimeout(()=> toastEl.style.display='none', ms);
+}
+
+/* ====== Game state ====== */
+const rooms = {};
+const doors = [];
+let doorMap = {};
+const shovel = {roomId:8, w:44, h:44, taken:false, rect:null};
+const hole = {roomId:6, w:72, h:72, dug:0, done:false, rect:null};
+const player = {w:44,h:44,x:0,y:0,speed:2.6,hasShovel:false,equipped:false};
+const seeker = {w:48,h:48,x:0,y:0,speed:5.2,active:false,visiting:null};
+let running=false, ended=false;
+let tStart = 0, hideLeft = hideSeconds, seekLeft = totalSeekSeconds;
+let visitPlan = [], visitIdx = 0, visitTimer = 0;
+let nodes = [], adj = {}, seekerPath = null, seekerPathIdx = 0;
+let lives = 3;
+let invuln = 0;
+let touchedThisRoom = new Set();
+let seekerFast = false; // đã tăng tốc chưa
+
+/* ====== build grid rooms positions ====== */
+function layoutRooms(){
+  roomEls.forEach(el=>{
+    const id = Number(el.dataset.id);
+    const idx = id - 1;
+    const col = idx % COLS;
+    const row = Math.floor(idx / COLS);
+    const x = OFFSET_X + col * (CELL_W + GAP);
+    const y = OFFSET_Y + row * (CELL_H + GAP);
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.width = CELL_W + 'px';
+    el.style.height = CELL_H + 'px';
+    const img = el.querySelector('img');
+    if(img){ img.onerror = ()=> { el.classList.add('missing'); img.style.display='none'; }; }
+    rooms[id] = {el, x, y, w: CELL_W, h: CELL_H, center: {x: x + CELL_W/2, y: y + CELL_H/2}};
+  });
+  const mainX = (WRAP_W/2) - 22;
+  const mainY = WRAP_H - 72;
+  mainDoorEl.style.left = mainX + 'px';
+  mainDoorEl.style.top  = mainY + 'px';
+  mainDoorEl._rect = {x: mainX, y: mainY, w:44, h:34};
+}
+
+/* ====== doors creation ====== */
+function addDoor(x,y,w,h,roomA,roomB){
+  const key = `${Math.round(x)}_${Math.round(y)}_${Math.round(w)}_${Math.round(h)}`;
+  if(doorMap[key] !== undefined) return doorMap[key];
+  const el = document.createElement('div'); el.className='door';
+  el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px'; el.style.height = h + 'px';
+  wrap.appendChild(el);
+  const id = doors.length;
+  doors.push({id, x,y,w,h, rooms: [roomA, roomB].filter(Boolean), el});
+  doorMap[key] = id;
+  return id;
+}
+
+function buildDoors(){
+  wrap.querySelectorAll('.door').forEach(d=>d.remove());
+  doors.length = 0; doorMap = {};
+  const doorW = 8, doorH = 8;
+  function addDoorRect(x, y, w, h, roomA, roomB){ addDoor(x, y, w, h, roomA, roomB); }
+
+  addDoorRect(rooms[1].x + rooms[1].w - doorW/2, rooms[1].y + rooms[1].h/2 - 34, doorW, 68, 1, 2);
+  addDoorRect(rooms[1].x + rooms[1].w/2 - 34, rooms[1].y + rooms[1].h - doorH/2, 68, doorH, 1, 4);
+
+  addDoorRect(rooms[2].x - doorW/2, rooms[2].y + rooms[2].h/2 - 34, doorW, 68, 2, 1);
+  addDoorRect(rooms[2].x + rooms[2].w - doorW/2, rooms[2].y + rooms[2].h/2 - 34, doorW, 68, 2, 3);
+  addDoorRect(rooms[2].x + rooms[2].w/2 - 34, rooms[2].y + rooms[2].h - doorH/2, 68, doorH, 2, 5);
+
+  addDoorRect(rooms[3].x - doorW/2, rooms[3].y + rooms[3].h/2 - 34, doorW, 68, 3, 2);
+  addDoorRect(rooms[3].x + rooms[3].w/2 - 34, rooms[3].y + rooms[3].h - doorH/2, 68, doorH, 3, 6);
+
+  addDoorRect(rooms[4].x + rooms[4].w - doorW/2, rooms[4].y + rooms[4].h/2 - 34, doorW, 68, 4, 5);
+  addDoorRect(rooms[4].x + rooms[4].w/2 - 34, rooms[4].y - doorH/2, 68, doorH, 4, 1);
+  addDoorRect(rooms[4].x + rooms[4].w/2 - 34, rooms[4].y + rooms[4].h - doorH/2, 68, doorH, 4, 7);
+
+  addDoorRect(rooms[5].x - doorW/2, rooms[5].y + rooms[5].h/2 - 34, doorW, 68, 5, 2);
+  addDoorRect(rooms[5].x + rooms[5].w - doorW/2, rooms[5].y + rooms[5].h/2 - 34, doorW, 68, 5, 6);
+  addDoorRect(rooms[5].x + rooms[5].w/2 - 34, rooms[5].y - doorH/2, 68, doorH, 5, 2);
+  addDoorRect(rooms[5].x + rooms[5].w/2 - 34, rooms[5].y + rooms[5].h - doorH/2, 68, doorH, 5, 8);
+
+  addDoorRect(rooms[6].x - doorW/2, rooms[6].y + rooms[6].h/2 - 34, doorW, 68, 6, 3);
+  addDoorRect(rooms[6].x + rooms[6].w/2 - 34, rooms[6].y - doorH/2, 68, doorH, 6, 3);
+  addDoorRect(rooms[6].x + rooms[6].w/2 - 34, rooms[6].y + rooms[6].h - doorH/2, 68, doorH, 6, 9);
+
+  addDoorRect(rooms[7].x + rooms[7].w - doorW/2, rooms[7].y + rooms[7].h/2 - 34, doorW, 68, 7, 8);
+  addDoorRect(rooms[7].x + rooms[7].w/2 - 34, rooms[7].y - doorH/2, 68, doorH, 7, 4);
+
+  addDoorRect(rooms[8].x - doorW/2, rooms[8].y + rooms[8].h/2 - 34, doorW, 68, 8, 7);
+  addDoorRect(rooms[8].x + rooms[8].w - doorW/2, rooms[8].y + rooms[8].h/2 - 34, doorW, 68, 8, 9);
+  addDoorRect(rooms[8].x + rooms[8].w/2 - 34, rooms[8].y - doorH/2, 68, doorH, 8, 5);
+
+  addDoorRect(rooms[9].x - doorW/2, rooms[9].y + rooms[9].h/2 - 34, doorW, 68, 9, 8);
+  addDoorRect(rooms[9].x + rooms[9].w/2 - 34, rooms[9].y - doorH/2, 68, doorH, 9, 6);
+}
+
+/* ====== item placement ====== */
+function placeItems(){
+  const r8 = rooms[8];
+  shovel.rect = {x: r8.x + r8.w - shovel.w - 12, y: r8.y + 8, w: shovel.w, h: shovel.h};
+  const r6 = rooms[6];
+  hole.rect = {x: r6.x + (r6.w - hole.w)/2, y: r6.y + (r6.h - hole.h)/2, w: hole.w, h: hole.h};
+  let s = wrap.querySelector('.shovelIcon');
+  if(!s){ s = document.createElement('img'); s.className='shovelIcon'; s.src='xeng.png'; s.style.position='absolute'; s.style.width = shovel.w+'px'; s.style.height = shovel.h+'px'; s.style.zIndex=52; wrap.appendChild(s); }
+  s.style.left = shovel.rect.x + 'px'; s.style.top = shovel.rect.y + 'px'; s.style.display = shovel.taken ? 'none' : 'block';
+  let h = wrap.querySelector('.holeIcon');
+  if(!h){ h = document.createElement('img'); h.className='holeIcon'; h.src='dat.png'; h.style.position='absolute'; h.style.width = hole.w+'px'; h.style.height = hole.h+'px'; h.style.zIndex=51; wrap.appendChild(h); }
+  h.style.left = hole.rect.x + 'px'; h.style.top = hole.rect.y + 'px'; h.style.display = hole.done ? 'none' : 'block';
+}
+
+/* ====== graph for seeker pathfinding ====== */
+function buildGraph(){
+  nodes = [];
+  adj = {};
+  for(let id=1; id<=9; id++){
+    const r = rooms[id];
+    nodes.push({id:`room${id}`, x: r.center.x, y: r.center.y, type:'room', roomId:id});
+  }
+  for(const d of doors){
+    nodes.push({id:`door${d.id}`, x: d.x + d.w/2, y: d.y + d.h/2, type:'door', doorId:d.id, rooms: d.rooms});
+  }
+  const md = mainDoorEl._rect;
+  nodes.push({id:'outside', x: md.x + md.w/2, y: md.y + md.h/2, type:'outside'});
+  for(const n of nodes) adj[n.id] = [];
+  for(const n of nodes){
+    if(n.type === 'door'){
+      const d = doors[n.doorId];
+      if(d.rooms && d.rooms.length){
+        for(const rid of d.rooms){ if(rid){ adj[n.id].push(`room${rid}`); adj[`room${rid}`].push(n.id); } }
+      } else { adj[n.id].push('outside'); adj['outside'].push(n.id); }
+    }
+  }
+}
+
+function nearestNodeId(x,y){ let best=null, bd=1e9; for(const n of nodes){ const d = Math.hypot(n.x - x, n.y - y); if(d < bd){ bd = d; best = n.id; } } return best; }
+function findPath(fromPt, toPt){ if(!nodes.length) return null; const start = nearestNodeId(fromPt.x, fromPt.y); const endNode = nearestNodeId(toPt.x, toPt.y); if(!start || !endNode) return null; const q = [start], prev = {[start]: null}; while(q.length){ const u = q.shift(); if(u === endNode) break; for(const v of adj[u] || []){ if(!(v in prev)){ prev[v] = u; q.push(v); } } } if(!(endNode in prev)) return null; const seq = []; let cur = endNode; while(cur){ seq.push(cur); cur = prev[cur]; } seq.reverse(); return seq.map(id => nodes.find(n => n.id === id)).filter(Boolean).map(n => ({x: n.x, y: n.y})); }
+
+/* ====== placement of player & seeker ====== */
+function placePlayerSeeker(){ const r1 = rooms[1]; player.x = r1.center.x - player.w/2; player.y = r1.y + r1.h - player.h - 10; const md = mainDoorEl._rect; seeker.x = md.x + 2; seeker.y = md.y - 70; updateDOM(); }
+function updateDOM(){ playerEl.style.left = Math.round(player.x) + 'px'; playerEl.style.top  = Math.round(player.y) + 'px'; playerEl.style.width = player.w + 'px'; playerEl.style.height = player.h + 'px'; seekerEl.style.left = Math.round(seeker.x) + 'px'; seekerEl.style.top  = Math.round(seeker.y) + 'px'; seekerEl.style.width = seeker.w + 'px'; seekerEl.style.height = seeker.h + 'px'; }
+
+/* ====== movement rules ====== */
+function insideRoomRect(rect, roomRect){ return rect.x >= roomRect.x + 2 && rect.x + rect.w <= roomRect.x + roomRect.w - 2 && rect.y >= roomRect.y + 2 && rect.y + rect.h <= roomRect.y + roomRect.h - 2; }
+function canPlace(rect){ if(rect.x < 0 || rect.y < 0 || rect.x + rect.w > WRAP_W || rect.y + rect.h > WRAP_H) return false; for(const id in rooms){ if(insideRoomRect(rect, rooms[id])) return true; } for(const id in rooms){ const r = rooms[id]; const overlap = !(rect.x + rect.w <= r.x || rect.x >= r.x + r.w || rect.y + rect.h <= r.y || rect.y >= r.y + r.h); if(overlap){ let ok = false; for(const d of doors){ if(d.rooms.includes(Number(id)) || (d.rooms.length === 1 && d.rooms[0] === Number(id))){ const dr = {x:d.x,y:d.y,w:d.w,h:d.h}; const overlapDoor = !(rect.x + rect.w <= dr.x || rect.x >= dr.x + dr.w || rect.y + rect.h <= dr.y || rect.y >= dr.y + dr.h); if(overlapDoor){ ok = true; break; } } } if(!ok) return false; } } for(const d of doors){ const dr = {x:d.x,y:d.y,w:d.w,h:d.h}; const overlapDoor = !(rect.x + rect.w <= dr.x || rect.x >= dr.x + dr.w || rect.y + rect.h <= dr.y || rect.y >= dr.y + dr.h); if(overlapDoor) return true; } const md = mainDoorEl._rect; if(md && !(rect.x + rect.w <= md.x || rect.x >= md.x + md.w || rect.y + rect.h <= md.y || rect.y >= md.y + md.h)) return true; return false; }
+
+/* ====== input handlers ====== */
+const keys = {left:false,right:false,up:false,down:false};
+window.addEventListener('keydown', e=>{ if(e.key === 'ArrowLeft') keys.left = true; if(e.key === 'ArrowRight') keys.right = true; if(e.key === 'ArrowUp') keys.up = true; if(e.key === 'ArrowDown') keys.down = true; });
+window.addEventListener('keyup', e=>{ if(e.key === 'ArrowLeft') keys.left = false; if(e.key === 'ArrowRight') keys.right = false; if(e.key === 'ArrowUp') keys.up = false; if(e.key === 'ArrowDown') keys.down = false; });
+function hold(el, downFn, upFn){ let p=false; el.addEventListener('mousedown', ()=>{ p=true; downFn(); }); window.addEventListener('mouseup', ()=>{ if(p){ p=false; upFn&&upFn(); } }); el.addEventListener('touchstart', e=>{ e.preventDefault(); p=true; downFn(); }, {passive:false}); el.addEventListener('touchend', ()=>{ if(p){ p=false; upFn&&upFn(); } }); }
+hold(document.getElementById('btnL'), ()=>keys.left=true, ()=>keys.left=false);
+hold(document.getElementById('btnR'), ()=>keys.right=true, ()=>keys.right=false);
+hold(document.getElementById('btnU'), ()=>keys.up=true, ()=>keys.up=false);
+hold(document.getElementById('btnD'), ()=>keys.down=true, ()=>keys.down=false);
+
+/* slot & take */
+btnTake.addEventListener('click', ()=>{ shovel.taken = true; player.hasShovel = true; btnTake.style.display = 'none'; slot1.innerHTML = '<img src="xeng.png" width="40" height="40" draggable="false">'; showToast('Đã lấy xẻng vào slot 1',1200); });
+slot1.addEventListener('click', ()=>{ if(player.hasShovel){ player.equipped = !player.equipped; slot1.classList.toggle('active', player.equipped); showToast(player.equipped?'Đang cầm xẻng':'Bỏ xẻng',900); } });
+digCircle.addEventListener('click', ()=>{ if(!player.equipped){ showToast('Bạn phải cầm xẻng (bấm slot 1)'); return; } hole.dug++; showToast(`Đang đào (${hole.dug}/3)`,900); if(hole.dug >= 3 && !hole.done){ hole.done = true; showToast('Bạn thật thông minh. Bạn đã thắng!',1500); setTimeout(()=> winGame(), 900); } });
+
+/* ====== seeker helpers ====== */
+function moveToward(obj, target, speed){ const cx = obj.x + obj.w/2, cy = obj.y + obj.h/2; const dx = target.x - cx, dy = target.y - cy; const dist = Math.hypot(dx,dy); if(dist < 1) return true; const step = Math.min(speed, dist); obj.x = cx + dx/dist * step - obj.w/2; obj.y = cy + dy/dist * step - obj.h/2; return (Math.hypot(target.x - (obj.x+obj.w/2), target.y - (obj.y+obj.h/2)) < 4); }
+function setSeekerPathToRoom(roomId){ const tgt = {x: rooms[roomId].center.x, y: rooms[roomId].center.y}; const fromPt = {x: seeker.x + seeker.w/2, y: seeker.y + seeker.h/2}; const p = findPath(fromPt, tgt); seekerPath = p; seekerPathIdx = 0; }
+
+/* ====== visit plan ====== */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function makeVisitPlan(){ const one = shuffle([1,2,3,4,5,6,7,8,9]); const two = shuffle([1,2,3,4,5,6,7,8,9]); const three = shuffle([1,2,3,4,5,6,7,8,9]); const four = shuffle([1,2,3,4,5,6,7,8,9]); return [...one, ...two, ...three, ...four]; }
+
+/* ====== lives UI ====== */
+function updateLivesUI(){ const hearts = livesEl.querySelectorAll('.heart'); hearts.forEach((h, i)=> h.classList.toggle('lost', i < (3 - lives))); }
+function damage(reason='Mất 1 tim!'){ if(invuln > 0 || ended) return; lives = Math.max(0, lives - 1); updateLivesUI(); showToast(`${reason} (còn ${lives} tim)`, 1100); const r1 = rooms[1]; player.x = r1.center.x - player.w/2; player.y = r1.y + r1.h - player.h - 10; invuln = 1.2; if(lives <= 0){ loseGame('Bạn đã hết 3 tim.'); } }
+
+/* ====== core startGame (không gọi popup ở đây) ====== */
+function startCore(){
+  // reset & start variables
+  layoutRooms(); buildDoors(); placeItems(); buildGraph(); placePlayerSeeker();
+  visitPlan = makeVisitPlan(); visitIdx = 0; visitTimer = 0;
+  seeker.active = false; seeker.visiting = null; seekerPath = null;
+  shovel.taken = false; player.hasShovel = false; player.equipped = false;
+  hole.dug = 0; hole.done = false;
+  slot1.innerHTML = ''; slot1.classList.remove('active'); btnTake.style.display = 'none';
+  lives = 3; invuln = 0; updateLivesUI(); touchedThisRoom.clear();
+  tStart = performance.now(); hideLeft = hideSeconds; seekLeft = totalSeekSeconds;
+  running = true; ended = false; seekerFast = false; perRoomDuration = 5;
+  last = performance.now();
+
+  // play random bg music (bắt đầu thực sự khi user đã xác nhận)
+  playMusic();
+
+  requestAnimationFrame(loop);
+}
+
+/* ====== game loop ====== */
+let last = performance.now();
+function loop(now){ if(!running) return; const dt = Math.min(0.06, (now - last)/1000); last = now; update(dt); requestAnimationFrame(loop); }
+
+function update(dt){
+  if(ended) return;
+  invuln = Math.max(0, invuln - dt);
+  const elapsed = Math.floor((performance.now() - tStart)/1000);
+  document.getElementById('tStart').textContent = elapsed;
+
+  if(!seeker.active){
+    hideLeft = Math.max(0, hideSeconds - elapsed);
+    document.getElementById('tHide').textContent = hideLeft;
+    document.getElementById('tSeek').textContent = seekLeft;
+    if(hideLeft <= 0){
+      seeker.active = true;
+      showToast('Kẻ đi tìm bắt đầu!',1200);
+      tStart = performance.now();
+      visitIdx = 0; visitTimer = 0;
+      seeker.visiting = visitPlan[visitIdx];
+      setSeekerPathToRoom(seeker.visiting);
+      touchedThisRoom.clear();
+    }
+  } else {
+    const e2 = Math.floor((performance.now() - tStart)/1000);
+    seekLeft = Math.max(0, totalSeekSeconds - e2);
+    document.getElementById('tSeek').textContent = seekLeft;
+
+    // nếu còn 30s thì tăng tốc: phòng từ 3s -> 1s
+    if(seekLeft <= 10 && !seekerFast){
+      seekerFast = true;
+      perRoomDuration = 1;
+      showToast('Cảnh báo: Kẻ đi tìm tăng tốc! (1s/phòng)', 1600);
+    }
+
+    if(seekLeft <= 0){ winGame('Hết 160s — bạn thắng (còn ≥1 tim)!'); return; }
+  }
+
+  // player movement
+  let vx=0, vy=0; if(keys.left) vx -= player.speed; if(keys.right) vx += player.speed; if(keys.up) vy -= player.speed; if(keys.down) vy += player.speed;
+  if(vx !== 0 && vy !==0){ vx *= 0.7071; vy *= 0.7071; }
+  const nextRect = {x: player.x + vx, y: player.y + vy, w: player.w, h: player.h};
+  if(canPlace(nextRect)){ player.x = nextRect.x; player.y = nextRect.y; updateDOM(); } else {
+    const nx = {x: player.x + vx, y: player.y, w: player.w, h: player.h}; if(canPlace(nx)){ player.x = nx.x; updateDOM(); }
+    const ny = {x: player.x, y: player.y + vy, w: player.w, h: player.h}; if(canPlace(ny)){ player.y = ny.y; updateDOM(); }
+  }
+
+  // items UI
+  if(!shovel.taken){ if(rectOverlap({x:player.x,y:player.y,w:player.w,h:player.h}, shovel.rect)){ btnTake.style.display = 'inline-block'; } else btnTake.style.display = 'none'; }
+  if(!hole.done){ if(rectOverlap({x:player.x,y:player.y,w:player.w,h:player.h}, hole.rect)){ digCircle.style.display = 'block'; digCircle.style.left = (hole.rect.x + hole.rect.w/2 - 36) + 'px'; digCircle.style.top  = (hole.rect.y + hole.rect.h/2 - 36) + 'px'; } else digCircle.style.display = 'none'; }
+
+  const md = mainDoorEl._rect; if(md && rectOverlap({x:player.x,y:player.y,w:player.w,h:player.h}, md)){ damage('Bạn chạm cửa tam giác'); }
+
+  // seeker AI
+  if(seeker.active && !ended){
+    if(seeker.visiting == null){
+      if(visitIdx < visitPlan.length){
+        seeker.visiting = visitPlan[visitIdx];
+        setSeekerPathToRoom(seeker.visiting);
+        visitTimer = 0;
+        touchedThisRoom.delete(seeker.visiting);
+      } else {
+        seeker.visiting = visitPlan[visitPlan.length-1];
+      }
+    }
+    if(seekerPath && seekerPathIdx < seekerPath.length){
+      const wp = seekerPath[seekerPathIdx];
+      const arrived = moveToward(seeker, wp, seeker.speed);
+      updateDOM();
+      if(arrived) seekerPathIdx++;
+    } else {
+      visitTimer += dt;
+      const rid = seeker.visiting;
+      const roomRect = rooms[rid];
+      const pcx = player.x + player.w/2, pcy = player.y + player.h/2;
+      const playerInThisRoom = (pcx >= roomRect.x && pcx <= roomRect.x + roomRect.w && pcy >= roomRect.y && pcy <= roomRect.y + roomRect.h);
+      if(playerInThisRoom && !touchedThisRoom.has(rid)){ touchedThisRoom.add(rid); damage('Nhân vật đi tìm đã phát hiện bạn'); }
+      if(visitTimer >= perRoomDuration){ visitIdx++; seeker.visiting = null; seekerPath = null; seekerPathIdx = 0; visitTimer = 0; }
+    }
+    if(rectOverlap({x:player.x,y:player.y,w:player.w,h:player.h}, {x:seeker.x,y:seeker.y,w:seeker.w,h:seeker.h})){ damage('Bạn chạm vào nhân vật đi tìm'); }
+  }
+}
+
+/* ====== end / win ====== */
+function loseGame(msg){ if(ended) return; ended = true; running = false; stopMusic(); showToast(msg,2000); setTimeout(()=> showEnd(false,msg), 900); }
+function winGame(msg='Bạn thật thông minh. Bạn đã thắng!'){ if(ended) return; ended=true; running=false; stopMusic(); showToast(msg,2000); setTimeout(()=> showEnd(true,msg), 900); }
+
+function showEnd(win,msg){
+  startOverlay.style.display = 'flex';
+  startOverlay.innerHTML = `<h2>${win ? '🎉 Bạn thắng!' : '☠️ Bạn thua'}</h2><p>${msg}</p><button id="rb">Chơi lại</button>`;
+  document.getElementById('rb').addEventListener('click', ()=>{
+    // khôi phục nội dung overlay ban đầu
+    startOverlay.innerHTML = `<h2>Trò chơi do Thanh tạo</h2>
+      <p>Player có 20s để trốn trong 9 phòng. Kẻ đi tìm kiểm tra 9 phòng (3s/phòng), lặp 6 vòng. Hết 160s mà còn tim là thắng.</p>
+      <button id="startBtn">Start</button>`;
+    const newStart = document.getElementById('startBtn');
+    newStart.addEventListener('click', ()=>{
+      startOverlay.style.display='none';
+      hud.style.display='block';
+      showCardSelect();
+    });
+  });
+}
+
+/* ====== util ====== */
+function rectOverlap(a,b){ return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h); }
+
+/* ====== audio handling (2 bản nhạc random) ====== */
+const musics = [ document.getElementById('bgMusic1'), document.getElementById('bgMusic2') ];
+let currentMusic = null;
+function playMusic() {
+  if (currentMusic) { currentMusic.pause(); currentMusic.currentTime = 0; }
+  currentMusic = musics[Math.floor(Math.random() * musics.length)];
+  currentMusic.currentTime = 0;
+  currentMusic.play().catch(e => console.log('Nhạc chưa sẵn sàng', e));
+}
+function stopMusic() {
+  if (currentMusic) { currentMusic.pause(); currentMusic.currentTime = 0; }
+}
+
+/* ====== CARD SELECT feature ====== */
+const seekers = [
+  { img: "phien.png", name: "Phiên" },
+  { img: "chubaduy.png", name: "Chú Ba Duy" },
+  { img: "maitrithuc.png", name: "Mai Trí Thức" }
+];
+let chosenSeeker = null;
+let countdownTimer = null;
+let timeLeft = 10;
+
+function pickSeeker(cardElement){
+  if (chosenSeeker) return;
+  // chọn random trong array seekers (để đảm bảo biểu tượng khác nhau)
+  const randomSeeker = seekers[Math.floor(Math.random() * seekers.length)];
+  chosenSeeker = randomSeeker;
+  // thay ảnh lá bài thành ảnh nhân vật
+  cardElement.src = randomSeeker.img;
+  // đổi ảnh kẻ đi tìm
+  seekerEl.style.backgroundImage = `url('${randomSeeker.img}')`;
+  clearInterval(countdownTimer);
+  setTimeout(()=>{
+    cardSelectEl.style.display = "none";
+    // bắt đầu game thực sự
+    startCore();
+  }, 700);
+}
+
+secretCards.forEach(card => {
+  card.addEventListener('click', function(){ pickSeeker(this); });
+});
+
+function showCardSelect(){
+  chosenSeeker = null;
+  // đặt lại ảnh lá bài về mặt sau (nếu đã bị lật trước đó)
+  secretCards.forEach(c => c.src = 'https://vietbinhminigame.io.vn/minigame-latthe1/img/back.png');
+  cardSelectEl.style.display = "block";
+  timeLeft = 10;
+  cardCountdownEl.textContent = `Bạn có ${timeLeft} giây để chọn...`;
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(()=>{
+    timeLeft--;
+    cardCountdownEl.textContent = `Bạn có ${timeLeft} giây để chọn...`;
+    if(timeLeft <= 0){
+      clearInterval(countdownTimer);
+      if(!chosenSeeker){
+        const cards = secretCards;
+        const randomCard = cards[Math.floor(Math.random() * cards.length)];
+        pickSeeker(randomCard);
+      }
+    }
+  }, 1000);
+}
+
+/* ====== Start button: mở popup chọn thẻ (không chạy game ngay) ====== */
+startBtn.addEventListener('click', ()=>{
+  startOverlay.style.display = 'none';
+  hud.style.display = 'block';
+  showCardSelect();
+});
+
+/* ====== initial load setup ====== */
+window.addEventListener('load', ()=>{
+  layoutRooms();
+  buildDoors();
+  placeItems();
+  placePlayerSeeker();
+  buildGraph();
+  updateLivesUI();
+  updateDOM();
+  setTimeout(()=> document.querySelectorAll('.room img').forEach(img=>{ if(!img.complete || img.naturalWidth===0) img.parentElement.classList.add('missing'); }), 300);
+  console.log("Game script loaded. window._game has map data.");
+});
+</script>
+</body>
+</html>
+
+</body>
+</html>
