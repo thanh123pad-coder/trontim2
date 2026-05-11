@@ -75,9 +75,9 @@
       <h2 style="color:#fff">Chọn 1 thẻ bí mật để xem ai sẽ đi tìm!</h2>
       <p id="cardCountdown" style="color:#fff">Bạn có 10 giây để chọn...</p>
       <div style="display:flex; justify-content:center; gap:20px; margin-top:20px;">
-        <img src="thebai.png" class="secretCard" width="120" height="160" alt="card1">
-        <img src="thebai.png" class="secretCard" width="120" height="160" alt="card2">
-        <img src="thebai.png" class="secretCard" width="120" height="160" alt="card3">
+        <img src="randomSeeker.png" class="secretCard" width="120" height="160" alt="card1">
+        <img src="randomSeeker.png" class="secretCard" width="120" height="160" alt="card2">
+        <img src="randomSeeker.png" class="secretCard" width="120" height="160" alt="card3">
       </div>
     </div>
 
@@ -497,7 +497,7 @@ secretCards.forEach(card => {
 function showCardSelect(){
   chosenSeeker = null;
   // đặt lại ảnh lá bài về mặt sau (nếu đã bị lật trước đó)
-  secretCards.forEach(c => c.src = 'https://vietbinhminigame.io.vn/minigame-latthe1/img/back.png');
+  secretCards.forEach(c => c.src = 'randomSeeker.png');
   cardSelectEl.style.display = "block";
   timeLeft = 10;
   cardCountdownEl.textContent = `Bạn có ${timeLeft} giây để chọn...`;
