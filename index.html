@@ -126,7 +126,7 @@ const OFFSET_X = (WRAP_W - (COLS*CELL_W + (COLS-1)*GAP)) / 2;
 const OFFSET_Y = (WRAP_H - (ROWS*CELL_H + (ROWS-1)*GAP)) / 2;
 const hideSeconds = 20;
 const totalSeekSeconds = 160;
-let perRoomDuration = 3; // thay đổi về sau (3s -> 2s khi còn 30s)
+let perRoomDuration = 2; // thay đổi về sau (3s -> 2s khi còn 30s)
 
 /* ====== DOM refs ====== */
 const wrap = document.getElementById('wrap');
@@ -160,7 +160,7 @@ let doorMap = {};
 const shovel = {roomId:8, w:44, h:44, taken:false, rect:null};
 const hole = {roomId:6, w:72, h:72, dug:0, done:false, rect:null};
 const player = {w:44,h:44,x:0,y:0,speed:2.6,hasShovel:false,equipped:false};
-const seeker = {w:48,h:48,x:0,y:0,speed:5.2,active:false,visiting:null};
+const seeker = {w:48,h:48,x:0,y:0,speed:6,active:false,visiting:null};
 let running=false, ended=false;
 let tStart = 0, hideLeft = hideSeconds, seekLeft = totalSeekSeconds;
 let visitPlan = [], visitIdx = 0, visitTimer = 0;
@@ -314,7 +314,25 @@ digCircle.addEventListener('click', ()=>{ if(!player.equipped){ showToast('Bạn
 /* ====== seeker helpers ====== */
 function moveToward(obj, target, speed){ const cx = obj.x + obj.w/2, cy = obj.y + obj.h/2; const dx = target.x - cx, dy = target.y - cy; const dist = Math.hypot(dx,dy); if(dist < 1) return true; const step = Math.min(speed, dist); obj.x = cx + dx/dist * step - obj.w/2; obj.y = cy + dy/dist * step - obj.h/2; return (Math.hypot(target.x - (obj.x+obj.w/2), target.y - (obj.y+obj.h/2)) < 4); }
 function setSeekerPathToRoom(roomId){ const tgt = {x: rooms[roomId].center.x, y: rooms[roomId].center.y}; const fromPt = {x: seeker.x + seeker.w/2, y: seeker.y + seeker.h/2}; const p = findPath(fromPt, tgt); seekerPath = p; seekerPathIdx = 0; }
+function getPlayerRoom(){
+  const pcx = player.x + player.w/2;
+  const pcy = player.y + player.h/2;
 
+  for(const id in rooms){
+    const r = rooms[id];
+
+    if(
+      pcx >= r.x &&
+      pcx <= r.x + r.w &&
+      pcy >= r.y &&
+      pcy <= r.y + r.h
+    ){
+      return Number(id);
+    }
+  }
+
+  return 1;
+}
 /* ====== visit plan ====== */
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function makeVisitPlan(){ const one = shuffle([1,2,3,4,5,6,7,8,9]); const two = shuffle([1,2,3,4,5,6,7,8,9]); const three = shuffle([1,2,3,4,5,6,7,8,9]); const four = shuffle([1,2,3,4,5,6,7,8,9]); return [...one, ...two, ...three, ...four]; }
@@ -334,7 +352,7 @@ function startCore(){
   slot1.innerHTML = ''; slot1.classList.remove('active'); btnTake.style.display = 'none';
   lives = 3; invuln = 0; updateLivesUI(); touchedThisRoom.clear();
   tStart = performance.now(); hideLeft = hideSeconds; seekLeft = totalSeekSeconds;
-  running = true; ended = false; seekerFast = false; perRoomDuration = 5;
+  running = true; ended = false; seekerFast = false; perRoomDuration = 2;
   last = performance.now();
 
   // play random bg music (bắt đầu thực sự khi user đã xác nhận)
@@ -372,11 +390,14 @@ function update(dt){
     document.getElementById('tSeek').textContent = seekLeft;
 
     // nếu còn 30s thì tăng tốc: phòng từ 3s -> 1s
-    if(seekLeft <= 10 && !seekerFast){
-      seekerFast = true;
-      perRoomDuration = 1;
-      showToast('Cảnh báo: Kẻ đi tìm tăng tốc! (1s/phòng)', 1600);
-    }
+       if(seekLeft <= 30 && !seekerFast){
+       seekerFast = true;
+
+    // tăng tốc
+       seeker.speed = 10;
+
+  showToast('30 giây cuối: Kẻ đi tìm bắt đầu truy đuổi!', 2000);
+}
 
     if(seekLeft <= 0){ winGame('Hết 160s — bạn thắng (còn ≥1 tim)!'); return; }
   }
@@ -399,15 +420,23 @@ function update(dt){
   // seeker AI
   if(seeker.active && !ended){
     if(seeker.visiting == null){
-      if(visitIdx < visitPlan.length){
-        seeker.visiting = visitPlan[visitIdx];
-        setSeekerPathToRoom(seeker.visiting);
-        visitTimer = 0;
-        touchedThisRoom.delete(seeker.visiting);
-      } else {
-        seeker.visiting = visitPlan[visitPlan.length-1];
-      }
+
+  if(seekerFast){
+    const playerRoom = getPlayerRoom();
+    seeker.visiting = playerRoom;
+    setSeekerPathToRoom(playerRoom);
+  }
+  else{
+    if(visitIdx < visitPlan.length){
+      seeker.visiting = visitPlan[visitIdx];
+      setSeekerPathToRoom(seeker.visiting);
+      visitTimer = 0;
+      touchedThisRoom.delete(seeker.visiting);
+    } else {
+      seeker.visiting = visitPlan[visitPlan.length-1];
     }
+  }
+}
     if(seekerPath && seekerPathIdx < seekerPath.length){
       const wp = seekerPath[seekerPathIdx];
       const arrived = moveToward(seeker, wp, seeker.speed);
